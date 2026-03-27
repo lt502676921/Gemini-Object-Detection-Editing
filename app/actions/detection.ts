@@ -12,14 +12,15 @@ export async function performDetection(
   model: MultimodalModel = MultimodalModel.DEFAULT as MultimodalModel,
   prompt?: string,
   mediaResolution?: PartMediaResolutionLevel,
-  apiKey?: string
+  apiKey?: string,
+  base64?: string
 ): Promise<VisualObjectWorkflow | null> {
   if (!apiKey) throw new Error("API Key is required for detection. Please set it in settings.");
   console.log(`\n🚀 [DETECTION] Starting for: ${imageUrl}`);
   console.log(`🤖 [DETECTION] Using Model: ${model}`);
   
   try {
-    const workflow = await detectObjects(imageUrl, model, prompt, undefined, mediaResolution, apiKey);
+    const workflow = await detectObjects(imageUrl, model, prompt, undefined, mediaResolution, apiKey, base64);
     if (workflow) {
       const { saveWorkflow } = await import("@/lib/genai/object-editing");
       saveWorkflow(imageUrl, workflow);
@@ -39,14 +40,15 @@ export async function performRestoration(
   imageUrl: string,
   prompt?: string,
   apiKey?: string,
-  imageModel: ImageModel = ImageModel.DEFAULT
+  imageModel: ImageModel = ImageModel.DEFAULT,
+  base64?: string
 ): Promise<VisualObjectWorkflow | null> {
   if (!apiKey) throw new Error("API Key is required for restoration. Please set it in settings.");
   console.log(`\n🛠️ [RESTORATION] Starting for: ${imageUrl}`);
   console.log(`🎨 [RESTORATION] Using Model: ${imageModel}`);
   
   try {
-    const workflow = await restoreObjects(imageUrl, prompt, imageModel, undefined, true, apiKey);
+    const workflow = await restoreObjects(imageUrl, prompt, imageModel, undefined, true, apiKey, base64);
     console.log(`✅ [RESTORATION] Completed for: ${imageUrl}`);
     return workflow;
   } catch (error: any) {
@@ -59,14 +61,15 @@ export async function performColorization(
   imageUrl: string,
   prompt?: string,
   apiKey?: string,
-  imageModel: ImageModel = ImageModel.DEFAULT
+  imageModel: ImageModel = ImageModel.DEFAULT,
+  base64?: string
 ): Promise<VisualObjectWorkflow | null> {
   if (!apiKey) throw new Error("API Key is required for colorization. Please set it in settings.");
   console.log(`\n🎨 [COLORIZATION] Starting for: ${imageUrl}`);
   console.log(`🎨 [COLORIZATION] Using Model: ${imageModel}`);
   
   try {
-    const workflow = await colorizeObjects(imageUrl, prompt, imageModel, undefined, true, apiKey);
+    const workflow = await colorizeObjects(imageUrl, prompt, imageModel, undefined, true, apiKey, base64);
     console.log(`✅ [COLORIZATION] Completed for: ${imageUrl}`);
     return workflow;
   } catch (error: any) {
@@ -79,14 +82,15 @@ export async function performCinematization(
   imageUrl: string,
   prompt?: string,
   apiKey?: string,
-  imageModel: ImageModel = ImageModel.DEFAULT
+  imageModel: ImageModel = ImageModel.DEFAULT,
+  base64?: string
 ): Promise<VisualObjectWorkflow | null> {
   if (!apiKey) throw new Error("API Key is required for cinematization. Please set it in settings.");
   console.log(`\n🎬 [CINEMATIZATION] Starting for: ${imageUrl}`);
   console.log(`🎨 [CINEMATIZATION] Using Model: ${imageModel}`);
   
   try {
-    const workflow = await cinematizeObjects(imageUrl, prompt, imageModel, undefined, true, apiKey);
+    const workflow = await cinematizeObjects(imageUrl, prompt, imageModel, undefined, true, apiKey, base64);
     console.log(`✅ [CINEMATIZATION] Completed for: ${imageUrl}`);
     return workflow;
   } catch (error: any) {

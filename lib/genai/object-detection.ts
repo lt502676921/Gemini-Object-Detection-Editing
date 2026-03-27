@@ -76,71 +76,77 @@ export async function detectObjects(
   prompt?: string,
   config?: GenerateContentConfig,
   mediaResolution?: PartMediaResolutionLevel,
-  apiKey?: string
+  apiKey?: string,
+  base64DataOverride?: string
 ): Promise<VisualObjectWorkflow | null> {
   // 1. Fetch image info (width/height needed for denormalization)
-  // In a real app, you'd use something like 'image-size' or 'sharp' to get metadata
-  // For this demo, we'll assume a placeholder or fetch it
   
-  let response;
-  const commonHeaders = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-    'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
-  };
+  let base64Data = base64DataOverride;
+  let mimeType = "image/jpeg";
 
-  try {
-    console.log(`📡 [FETCH] Attempting to fetch image: ${imageUrl}`);
-    response = await fetch(imageUrl, {
-      headers: {
-        ...commonHeaders,
-        'Referer': 'https://www.loc.gov/',
-      }
-    });
+  if (!base64Data) {
+    let response;
+    const commonHeaders = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+      'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+    };
 
-    if (response.status === 403) {
-      console.warn(`⚠️ [FETCH] 403 Forbidden with headers. Retrying without Referer/detailed headers...`);
+    try {
+      console.log(`📡 [FETCH] Attempting to fetch image: ${imageUrl}`);
       response = await fetch(imageUrl, {
-        headers: { 'User-Agent': commonHeaders['User-Agent'] }
+        headers: {
+          ...commonHeaders,
+          'Referer': 'https://www.loc.gov/',
+        }
       });
-    }
 
-    if (!response.ok) {
-       // Detailed error for 403/401
-       const errorMsg = `Failed to fetch image: ${response.status} ${response.statusText} from ${imageUrl}`;
-       console.error(`❌ [FETCH] Error: ${errorMsg}`);
-       
-       // Log headers to help debug
-       const headersObj: Record<string, string> = {};
-       response.headers.forEach((v, k) => { headersObj[k] = v; });
-       console.log(`ℹ️ [FETCH] Response Headers:`, JSON.stringify(headersObj));
-       
-       throw new Error(errorMsg);
+      if (response.status === 403) {
+        console.warn(`⚠️ [FETCH] 403 Forbidden with headers. Retrying without Referer/detailed headers...`);
+        response = await fetch(imageUrl, {
+          headers: { 'User-Agent': commonHeaders['User-Agent'] }
+        });
+      }
+
+      if (!response.ok) {
+         // Detailed error for 403/401
+         const errorMsg = `Failed to fetch image: ${response.status} ${response.statusText} from ${imageUrl}`;
+         console.error(`❌ [FETCH] Error: ${errorMsg}`);
+         
+         // Log headers to help debug
+         const headersObj: Record<string, string> = {};
+         response.headers.forEach((v, k) => { headersObj[k] = v; });
+         console.log(`ℹ [FETCH] Response Headers:`, JSON.stringify(headersObj));
+         
+         throw new Error(errorMsg);
+      }
+      
+      const blob = await response.blob();
+      const buffer = await blob.arrayBuffer();
+      
+      if (buffer.byteLength === 0) {
+        throw new Error(`Fetched image buffer is empty for ${imageUrl}`);
+      }
+
+      base64Data = Buffer.from(buffer).toString('base64');
+      mimeType = blob.type || "image/jpeg";
+
+    } catch (error: any) {
+      console.error(`❌ [FETCH] Network or Status Error for ${imageUrl}:`, error.message);
+      throw error;
     }
-  } catch (error: any) {
-    console.error(`❌ [FETCH] Network or Status Error for ${imageUrl}:`, error.message);
-    throw error;
+  } else {
+    console.log(`🚀 [FETCH] Using provided base64 data for ${imageUrl.substring(0, 50)}...`);
   }
   
-  const blob = await response.blob();
-  const buffer = await blob.arrayBuffer();
-  
-  if (buffer.byteLength === 0) {
-    throw new Error(`Fetched image buffer is empty for ${imageUrl}`);
-  }
-
-  const base64Data = Buffer.from(buffer).toString('base64');
+  const buffer = Buffer.from(base64Data, 'base64');
 
   // Use sharp to get actual dimensions
   let metadata;
   try {
-    metadata = await sharp(Buffer.from(buffer)).metadata();
+    metadata = await sharp(buffer).metadata();
   } catch (error) {
     console.error(`❌ Sharp metadata error for ${imageUrl}:`, error);
-    console.log(`ℹ️ Buffer length: ${buffer.byteLength}, Blob type: ${blob.type}`);
-    // If it's a small buffer, it might be an error message in disguise
-    if (buffer.byteLength < 1000) {
-      console.log(`ℹ️ Buffer content snippet: ${Buffer.from(buffer).toString('utf8').substring(0, 100)}`);
-    }
+    console.log(`ℹ️ Buffer length: ${buffer.byteLength}`);
     throw error;
   }
   
@@ -150,7 +156,7 @@ export async function detectObjects(
   const contentPart = {
     inlineData: {
       data: base64Data,
-      mimeType: blob.type || "image/jpeg"
+      mimeType: mimeType
     }
   };
 
@@ -179,7 +185,7 @@ export async function detectObjects(
       width, 
       height,
       base64: base64Data,
-      mimeType: blob.type || "image/jpeg"
+      mimeType: mimeType || "image/jpeg"
     },
     detectedObjects: denormalized,
     imagesByStep: {

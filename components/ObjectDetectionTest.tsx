@@ -21,6 +21,7 @@ const ObjectDetectionTest: React.FC = () => {
   const [isCinematizing, setIsCinematizing] = useState(false);
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
   const [isSpecializedDetectionEnabled, setIsSpecializedDetectionEnabled] = useState(true);
+  const [base64Data, setBase64Data] = useState<string | undefined>(undefined);
   
   // Prompt configuration
   const [restorationMode, setRestorationMode] = useState<'default' | 'tilted' | 'warped' | 'custom'>('default');
@@ -61,7 +62,7 @@ const ObjectDetectionTest: React.FC = () => {
         prompt = customColorizationPrompt;
       }
 
-      const result = await performColorization(selectedSource, prompt, apiKey, selectedImageModel);
+      const result = await performColorization(selectedSource, prompt, apiKey, selectedImageModel, base64Data);
       if (result) {
         setWorkflow(result);
         setActiveView('processed');
@@ -81,7 +82,7 @@ const ObjectDetectionTest: React.FC = () => {
       if (cinematizationMode === 'custom' && customCinematizationPrompt.trim()) {
         prompt = customCinematizationPrompt;
       }
-      const result = await performCinematization(selectedSource, prompt, apiKey, selectedImageModel);
+      const result = await performCinematization(selectedSource, prompt, apiKey, selectedImageModel, base64Data);
       if (result) {
         setWorkflow(result);
         setActiveView('processed');
@@ -109,7 +110,7 @@ const ObjectDetectionTest: React.FC = () => {
         prompt = customRestorationPrompt;
       }
 
-      const result = await performRestoration(selectedSource, prompt, apiKey, selectedImageModel);
+      const result = await performRestoration(selectedSource, prompt, apiKey, selectedImageModel, base64Data);
       if (result) {
         setWorkflow(result);
         setActiveView('processed');
@@ -139,7 +140,33 @@ const ObjectDetectionTest: React.FC = () => {
         mediaResolution = PartMediaResolutionLevel.HIGH; 
       }
 
-      const result = await performDetection(selectedSource, selectedModel, prompt, mediaResolution, apiKey);
+      // Client-side fetch fallback for LOC images to bypass server IP blocking
+      let currentBase64 = base64Data;
+      if (!currentBase64 && selectedSource.includes('loc.gov')) {
+        try {
+          console.log("🌐 [CLIENT] Fetching LOC image directly in browser...");
+          const response = await fetch(selectedSource);
+          if (response.ok) {
+            const blob = await response.blob();
+            currentBase64 = await new Promise((resolve) => {
+              const reader = new FileReader();
+              reader.onloadend = () => {
+                const result = reader.result as string;
+                resolve(result.split(',')[1]);
+              };
+              reader.readAsDataURL(blob);
+            });
+            setBase64Data(currentBase64);
+            console.log("✅ [CLIENT] Client-side fetch successful.");
+          } else {
+            console.warn(`⚠️ [CLIENT] Client-side fetch failed with status: ${response.status}`);
+          }
+        } catch (e) {
+          console.error("❌ [CLIENT] Client-side fetch error:", e);
+        }
+      }
+
+      const result = await performDetection(selectedSource, selectedModel, prompt, mediaResolution, apiKey, currentBase64);
       if (result && result.detectedObjects) {
         setWorkflow(result);
         setDetections(result.detectedObjects);

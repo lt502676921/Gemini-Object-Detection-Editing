@@ -19,7 +19,8 @@ export type ObjectEditingFunction = (
   model?: ImageModel,
   config?: GenerateContentConfig,
   displayResults?: boolean,
-  apiKey?: string
+  apiKey?: string,
+  base64?: string
 ) => Promise<VisualObjectWorkflow>;
 
 /**
@@ -110,10 +111,11 @@ export function createObjectEditingFunction(
     model = defaultModel,
     config = defaultConfig,
     displayResults = true,
-    apiKey?: string
+    apiKey?: string,
+    base64?: string
   ) => {
     // 1. Get workflow and source images
-    const { workflow, sourceImages } = await getWorkflowAndStepImages(imageUrl, sourceStep, apiKey);
+    const { workflow, sourceImages } = await getWorkflowAndStepImages(imageUrl, sourceStep, apiKey, base64);
     
     const finalPrompt = (prompt || defaultPrompt).trim();
     const finalModel = model || defaultModel;
@@ -165,14 +167,15 @@ export function createObjectEditingFunction(
 export async function getWorkflowAndStepImages(
   imageUrl: string,
   step: WorkflowStep,
-  apiKey?: string
+  apiKey?: string,
+  base64?: string
 ): Promise<{ workflow: VisualObjectWorkflow; sourceImages: string[] }> {
   let workflow = workflowStore[imageUrl];
   
   // 1. If no workflow, run detection
   if (!workflow) {
     console.log("🔍 No workflow in store, running detection for:", imageUrl);
-    const result = await detectObjects(imageUrl, undefined, undefined, undefined, undefined, apiKey);
+    const result = await detectObjects(imageUrl, undefined, undefined, undefined, undefined, apiKey, base64);
     if (!result) throw new Error("Failed to initialize workflow via detection");
     workflow = result;
     workflowStore[imageUrl] = workflow;
