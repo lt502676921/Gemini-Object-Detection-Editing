@@ -82,21 +82,43 @@ export async function detectObjects(
   // In a real app, you'd use something like 'image-size' or 'sharp' to get metadata
   // For this demo, we'll assume a placeholder or fetch it
   
-  const response = await fetch(imageUrl, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-      'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
-      'Accept-Language': 'en-US,en;q=0.9',
-      'Cache-Control': 'no-cache',
-      'Pragma': 'no-cache',
-      'Referer': 'https://www.loc.gov/',
-      'Sec-Ch-Ua': '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"',
-      'Sec-Ch-Ua-Mobile': '?0',
-      'Sec-Ch-Ua-Platform': '"Windows"',
+  let response;
+  const commonHeaders = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+    'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+  };
+
+  try {
+    console.log(`📡 [FETCH] Attempting to fetch image: ${imageUrl}`);
+    response = await fetch(imageUrl, {
+      headers: {
+        ...commonHeaders,
+        'Referer': 'https://www.loc.gov/',
+      }
+    });
+
+    if (response.status === 403) {
+      console.warn(`⚠️ [FETCH] 403 Forbidden with headers. Retrying without Referer/detailed headers...`);
+      response = await fetch(imageUrl, {
+        headers: { 'User-Agent': commonHeaders['User-Agent'] }
+      });
     }
-  });
-  if (!response.ok) {
-    throw new Error(`Failed to fetch image: ${response.status} ${response.statusText} from ${imageUrl}`);
+
+    if (!response.ok) {
+       // Detailed error for 403/401
+       const errorMsg = `Failed to fetch image: ${response.status} ${response.statusText} from ${imageUrl}`;
+       console.error(`❌ [FETCH] Error: ${errorMsg}`);
+       
+       // Log headers to help debug
+       const headersObj: Record<string, string> = {};
+       response.headers.forEach((v, k) => { headersObj[k] = v; });
+       console.log(`ℹ️ [FETCH] Response Headers:`, JSON.stringify(headersObj));
+       
+       throw new Error(errorMsg);
+    }
+  } catch (error: any) {
+    console.error(`❌ [FETCH] Network or Status Error for ${imageUrl}:`, error.message);
+    throw error;
   }
   
   const blob = await response.blob();
